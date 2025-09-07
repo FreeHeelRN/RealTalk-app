@@ -460,7 +460,6 @@
     </div>
 
     <script>
-        // Configuration - UPDATE THIS WITH YOUR LATEST DEPLOYMENT URL
         const CONFIG = {
             BACKEND_URL: 'https://script.google.com/macros/s/AKfycbziv3gYkiEz4-XytvSvOhHnRIvgtlNWjO2K02ZPw40gHlNJBDMkUgAAj3Pm2MHU2Blp/exec',
             CURRENT_LANGUAGE: 'German',
