@@ -8,37 +8,161 @@
     <h2 style="color: gold;">Language Learning for Real Life</h2>
     
     <div style="background: white; padding: 20px; margin: 20px; border-radius: 10px;">
-        <p>If you can see this text, the HTML is working!</p>
-        <button onclick="alert('JavaScript is working!')">Test JavaScript</button>
-        <button onclick="testAPI()">Test Backend</button>
-        <div id="result"></div>
+        <p>✅ HTML is working!</p>
+        <p>✅ JavaScript is working!</p>
+        
+        <button onclick="testBackendGET()">Test Backend (GET)</button>
+        <button onclick="testFullConversation()">🎤 Full German Conversation</button>
+        
+        <div id="result" style="margin-top: 10px; padding: 10px; background: #f0f0f0; min-height: 50px;">
+            Click a button to test...
+        </div>
     </div>
 
     <script>
-        console.log('Script is running!');
+        const BACKEND_URL = 'https://script.google.com/macros/s/AKfycbzy-obtumsCDJR3NT1l2eaRMsA4skAalGoz0E1NX-P1euM1xA10CjNbZntlIMd8Pq4b/exec';
         
-        async function testAPI() {
-            document.getElementById('result').innerHTML = 'Testing...';
+        async function testBackendGET() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '🔄 Testing GET request...';
             
             try {
-                const response = await fetch('https://script.google.com/macros/s/AKfycbziv3gYkiEz4-XytvSvOhHnRIvgtlNWjO2K02ZPw40gHlNJBDMkUgAAj3Pm2MHU2Blp/exec', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        action: 'conversation',
-                        userId: 'test',
-                        userInput: 'Hello',
-                        language: 'German'
-                    })
+                const params = new URLSearchParams({
+                    action: 'conversation',
+                    userId: 'test_user',
+                    userInput: 'Hallo, wie geht es dir?',
+                    language: 'German'
                 });
                 
-                const data = await response.json();
-                document.getElementById('result').innerHTML = 'Backend works! Response: ' + JSON.stringify(data, null, 2);
+                const url = `${BACKEND_URL}?${params}`;
+                console.log('Testing URL:', url);
+                
+                const response = await fetch(url);
+                console.log('Response status:', response.status);
+                
+                const text = await response.text();
+                console.log('Response text:', text);
+                
+                const data = JSON.parse(text);
+                
+                if (data.success && data.response) {
+                    resultDiv.innerHTML = `
+                        ✅ <strong>Backend Working Perfectly!</strong><br><br>
+                        <strong>German:</strong> ${data.response.targetLanguage}<br>
+                        <strong>English:</strong> ${data.response.translation}<br><br>
+                        <em>Ready for full conversation test!</em>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `🔍 Backend responded:<br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
                 
             } catch (error) {
-                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+                console.error('Test failed:', error);
+                resultDiv.innerHTML = `❌ Test failed: ${error.message}`;
             }
         }
+        
+        async function testFullConversation() {
+            const resultDiv = document.getElementById('result');
+            
+            if (!('webkitSpeechRecognition' in window)) {
+                resultDiv.innerHTML = '❌ Speech recognition not supported. Please use Chrome or Safari.';
+                return;
+            }
+            
+            resultDiv.innerHTML = `
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                    🎤 <strong>Ready for German Conversation!</strong><br>
+                    Click the microphone icon below and speak in German when prompted.
+                </div>
+                <button onclick="startListening()" style="background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 20px; cursor: pointer;">
+                    🎤 Start Talking
+                </button>
+                <div id="conversationArea" style="margin-top: 15px; min-height: 100px; border: 1px solid #ddd; border-radius: 8px; padding: 10px;">
+                    <em>Conversation will appear here...</em>
+                </div>
+            `;
+        }
+        
+        function startListening() {
+            const conversationArea = document.getElementById('conversationArea');
+            conversationArea.innerHTML = '<div style="color: #4CAF50; font-weight: bold;">🎤 Listening... speak in German now!</div>';
+            
+            const recognition = new webkitSpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'de-DE';
+            
+            recognition.onresult = async function(event) {
+                const userInput = event.results[0][0].transcript;
+                console.log('User said:', userInput);
+                
+                // Show user input
+                conversationArea.innerHTML = `
+                    <div style="padding: 8px; background: #2196F3; color: white; border-radius: 8px; margin: 5px 0;">
+                        <strong>You:</strong> ${userInput}
+                    </div>
+                    <div style="padding: 8px; color: #666;">🔄 AIS is thinking...</div>
+                `;
+                
+                try {
+                    // Call backend
+                    const params = new URLSearchParams({
+                        action: 'conversation',
+                        userId: 'conversation_user_' + Date.now(),
+                        userInput: userInput,
+                        language: 'German'
+                    });
+                    
+                    const response = await fetch(`${BACKEND_URL}?${params}`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.response) {
+                        const aisResponse = data.response;
+                        
+                        // Show complete conversation
+                        conversationArea.innerHTML = `
+                            <div style="padding: 8px; background: #2196F3; color: white; border-radius: 8px; margin: 5px 0;">
+                                <strong>You:</strong> ${userInput}
+                            </div>
+                            <div style="padding: 8px; background: #4CAF50; color: white; border-radius: 8px; margin: 5px 0;">
+                                <strong>AIS:</strong> ${aisResponse.targetLanguage}<br>
+                                <small style="opacity: 0.8;"><em>${aisResponse.translation}</em></small>
+                            </div>
+                            <div style="margin-top: 10px;">
+                                <button onclick="startListening()" style="background: #4CAF50; color: white; border: none; padding: 8px 16px; border-radius: 15px; cursor: pointer;">
+                                    🎤 Continue Conversation
+                                </button>
+                            </div>
+                        `;
+                        
+                        // Speak the German response
+                        const utterance = new SpeechSynthesisUtterance(aisResponse.targetLanguage);
+                        utterance.lang = 'de-DE';
+                        utterance.rate = 0.9;
+                        speechSynthesis.speak(utterance);
+                        
+                    } else {
+                        throw new Error('Invalid response from backend');
+                    }
+                    
+                } catch (error) {
+                    conversationArea.innerHTML += `
+                        <div style="padding: 8px; background: #f44336; color: white; border-radius: 8px; margin: 5px 0;">
+                            ❌ Error: ${error.message}
+                        </div>
+                    `;
+                }
+            };
+            
+            recognition.onerror = function(event) {
+                conversationArea.innerHTML = `❌ Speech recognition error: ${event.error}`;
+            };
+            
+            recognition.start();
+        }
+        
+        console.log('RealTalk test page ready');
     </script>
 </body>
 </html>
