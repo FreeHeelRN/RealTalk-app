@@ -170,55 +170,12 @@
             min-height: 400px;
         }
 
-        @media (prefers-color-scheme: dark) {
-            .conversation-window {
-                background: rgba(30, 30, 30, 0.95);
-                color: #fff;
-                border: 1px solid rgba(255, 255, 255, 0.1);
-            }
-            
-            .speed-label {
-                color: #fff;
-            }
-
-            .speed-control {
-                background: rgba(0, 0, 0, 0.3);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-            }
-
-            .settings-btn {
-                color: #fff;
-            }
-
-            .logo {
-                color: #FF4444;
-                text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-            }
-
-            .tagline {
-                color: #FFD700;
-                text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.6);
-            }
-        }
-
         .message {
             margin-bottom: 20px;
             padding: 15px 20px;
             border-radius: 18px;
             max-width: 80%;
             word-wrap: break-word;
-            animation: slideIn 0.3s ease-out;
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
 
         .user-message {
@@ -232,13 +189,6 @@
             background: #F1F1F1;
             color: #333;
             margin-right: auto;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .ais-message {
-                background: #2C2C2E;
-                color: #fff;
-            }
         }
 
         .target-language {
@@ -290,7 +240,6 @@
         .listen-btn:disabled {
             background: #999;
             cursor: not-allowed;
-            transform: none;
         }
 
         @keyframes pulse {
@@ -330,23 +279,12 @@
             display: block;
         }
 
-        .message.loading .target-language:after {
-            content: "...";
-            animation: dots 1.5s infinite;
-        }
-
-        @keyframes dots {
-            0%, 20% { content: "..."; }
-            40% { content: ".."; }
-            60% { content: "."; }
-            80%, 100% { content: "..."; }
-        }
-
         .welcome-message {
             text-align: center;
             color: #666;
             font-style: italic;
             padding: 40px 20px;
+            font-size: 18px;
         }
 
         .error-message {
@@ -358,65 +296,16 @@
             font-size: 14px;
         }
 
-        .success-message {
-            background: #34C759;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 10px;
-            margin: 10px 0;
-            font-size: 14px;
+        .message.loading .target-language:after {
+            content: "...";
+            animation: dots 1.5s infinite;
         }
 
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                gap: 10px;
-                padding: 15px 20px 20px;
-            }
-
-            .left-controls, .right-controls {
-                position: static;
-                min-width: auto;
-                justify-content: center;
-            }
-
-            .branding {
-                position: static;
-                transform: none;
-                order: -1;
-                margin-bottom: 10px;
-            }
-
-            .logo {
-                font-size: 28px;
-            }
-
-            .tagline {
-                font-size: 14px;
-            }
-
-            .conversation-container {
-                margin: 10px auto;
-                padding: 0 15px;
-            }
-            
-            .conversation-window {
-                padding: 20px;
-            }
-            
-            .message {
-                max-width: 90%;
-            }
-
-            .voice-controls {
-                flex-direction: column;
-                align-items: center;
-            }
-
-            .listen-btn, .grammar-btn {
-                width: 100%;
-                max-width: 280px;
-            }
+        @keyframes dots {
+            0%, 20% { content: "..."; }
+            40% { content: ".."; }
+            60% { content: "."; }
+            80%, 100% { content: "..."; }
         }
     </style>
 </head>
@@ -460,6 +349,8 @@
     </div>
 
     <script>
+        console.log('RealTalk script starting...');
+        
         const CONFIG = {
             BACKEND_URL: 'https://script.google.com/macros/s/AKfycbziv3gYkiEz4-XytvSvOhHnRIvgtlNWjO2K02ZPw40gHlNJBDMkUgAAj3Pm2MHU2Blp/exec',
             CURRENT_LANGUAGE: 'German',
@@ -479,6 +370,14 @@
         const speedSlider = document.getElementById('speedSlider');
         const speedValue = document.getElementById('speedValue');
 
+        if (!listenBtn || !conversationWindow) {
+            console.error('Required elements not found');
+            alert('Page loading error. Please refresh.');
+        } else {
+            console.log('All elements found successfully');
+        }
+
+        // Speed control
         speedSlider.addEventListener('input', function() {
             currentSpeechRate = parseFloat(this.value);
             speedValue.textContent = currentSpeechRate.toFixed(1) + 'x';
@@ -487,6 +386,7 @@
             }
         });
 
+        // Initialize speech recognition
         function initializeSpeechRecognition() {
             if ('webkitSpeechRecognition' in window && !recognition) {
                 recognition = new webkitSpeechRecognition();
@@ -495,6 +395,7 @@
                 recognition.lang = 'de-DE';
                 
                 recognition.onstart = function() {
+                    console.log('Speech recognition started');
                     isListening = true;
                     listenBtn.textContent = '🔴 Listening...';
                     listenBtn.classList.add('listening');
@@ -502,6 +403,7 @@
                 };
                 
                 recognition.onend = function() {
+                    console.log('Speech recognition ended');
                     isListening = false;
                     listenBtn.textContent = '🎤 Start Talking';
                     listenBtn.classList.remove('listening');
@@ -517,6 +419,7 @@
                     }
                     
                     if (finalTranscript.trim()) {
+                        console.log('Speech recognized:', finalTranscript);
                         processUserInput(finalTranscript.trim());
                     }
                 };
@@ -532,7 +435,9 @@
             }
         }
 
+        // Event listeners
         listenBtn.addEventListener('click', function() {
+            console.log('Listen button clicked');
             if (!recognition) {
                 initializeSpeechRecognition();
             }
@@ -541,7 +446,12 @@
                 recognition.stop();
             } else {
                 if (recognition) {
-                    recognition.start();
+                    try {
+                        recognition.start();
+                    } catch (error) {
+                        console.error('Error starting recognition:', error);
+                        addErrorMessage('Could not start speech recognition: ' + error.message);
+                    }
                 } else {
                     alert('Voice recognition not supported. Please use Chrome or Safari.');
                 }
@@ -556,13 +466,16 @@
             }
         });
 
+        // Process user input
         async function processUserInput(userInput) {
             try {
+                console.log('Processing input:', userInput);
                 addUserMessage(userInput);
                 const loadingId = addAISMessage('', '', true);
                 listenBtn.disabled = true;
                 
                 const response = await callBackend(userInput);
+                console.log('Got response:', response);
                 
                 const loadingElement = document.getElementById(loadingId);
                 if (loadingElement) {
@@ -581,21 +494,23 @@
                     
                     speakGerman(response.response.targetLanguage);
                 } else {
+                    console.error('Backend error:', response);
                     addErrorMessage('Backend error: ' + (response ? response.error : 'No response'));
                     addAISMessage(
                         'Entschuldigung, ich habe ein technisches Problem.',
-                        '(Sorry, I\'m having a technical issue.)'
+                        '(Sorry, I am having a technical issue.)'
                     );
                 }
                 
             } catch (error) {
-                console.error('Error:', error);
+                console.error('Processing error:', error);
                 addErrorMessage('Connection error: ' + error.message);
             } finally {
                 listenBtn.disabled = false;
             }
         }
 
+        // Call backend
         async function callBackend(userInput) {
             const payload = {
                 action: 'conversation',
@@ -603,6 +518,8 @@
                 userInput: userInput,
                 language: CONFIG.CURRENT_LANGUAGE
             };
+
+            console.log('Calling backend with:', payload);
 
             const response = await fetch(CONFIG.BACKEND_URL, {
                 method: 'POST',
@@ -620,6 +537,7 @@
             return data.data;
         }
 
+        // UI functions
         function addUserMessage(text) {
             const message = document.createElement('div');
             message.className = 'message user-message';
@@ -689,7 +607,7 @@
             conversationWindow.scrollTop = conversationWindow.scrollHeight;
         }
 
-        console.log('RealTalk initialized');
+        console.log('RealTalk initialized successfully');
     </script>
 </body>
 </html>
