@@ -462,7 +462,7 @@
     <script>
         // Configuration - UPDATE THIS WITH YOUR LATEST DEPLOYMENT URL
         const CONFIG = {
-            BACKEND_URL: 'https://script.google.com/macros/s/AKfycbz5Fxpj7mxZ7Nd9TLbprHKYmeIdHYnKTVDfJX_v986rFn7GEO69ChHt271n7Pq9OLDq/exec',
+            BACKEND_URL: 'https://script.google.com/macros/s/AKfycbziv3gYkiEz4-XytvSvOhHnRIvgtlNWjO2K02ZPw40gHlNJBDMkUgAAj3Pm2MHU2Blp/exec',
             CURRENT_LANGUAGE: 'German',
             USER_ID: 'user_' + Math.random().toString(36).substr(2, 9)
         };
