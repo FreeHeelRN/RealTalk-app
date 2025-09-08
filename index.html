@@ -80,10 +80,25 @@
             height: 26px;
             border-radius: 4px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: background 0.3s ease;
+        }
+
+        .flag.english {
             background: linear-gradient(to bottom, 
-                #ccc 33.33%, 
-                #ccc 33.33% 66.66%, 
-                #ccc 66.66%);
+                #FF0000 16.66%, #FF0000 16.66% 20%, 
+                #FFFFFF 20% 26.66%, 
+                #FF0000 26.66% 30%, #FF0000 30% 33.33%,
+                #FFFFFF 33.33% 40%,
+                #FF0000 40% 43.33%, #FF0000 43.33% 46.66%,
+                #FFFFFF 46.66% 53.33%,
+                #FF0000 53.33% 56.66%, #FF0000 56.66% 60%,
+                #FFFFFF 60% 66.66%,
+                #FF0000 66.66% 70%, #FF0000 70% 73.33%,
+                #FFFFFF 73.33% 80%,
+                #FF0000 80% 83.33%, #FF0000 83.33%),
+                linear-gradient(to right,
+                #0052CC 0% 40%,
+                transparent 40%);
         }
 
         .flag.german {
@@ -95,16 +110,16 @@
 
         .flag.spanish {
             background: linear-gradient(to bottom, 
-                #c60b1e 33.33%, 
-                #ffc400 33.33% 66.66%, 
-                #c60b1e 66.66%);
+                #FF0000 25%, 
+                #FFD700 25% 75%, 
+                #FF0000 75%);
         }
 
         .flag.french {
             background: linear-gradient(to right, 
-                #0055a4 33.33%, 
-                #ffffff 33.33% 66.66%, 
-                #ef4135 66.66%);
+                #0052CC 33.33%, 
+                #FFFFFF 33.33% 66.66%, 
+                #FF0000 66.66%);
         }
 
         .speed-control {
@@ -218,6 +233,17 @@
             margin-right: auto;
         }
 
+        .correction-message {
+            background: rgba(255, 206, 84, 0.2);
+            border-left: 4px solid #FFCE54;
+            margin: 10px auto;
+            max-width: 90%;
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+
         .target-language {
             font-size: 16px;
             font-weight: 500;
@@ -301,7 +327,6 @@
             color: #666;
             font-style: italic;
             display: none;
-            min-height: 40px;
         }
 
         .listening-indicator.active {
@@ -524,20 +549,20 @@
 
         <div class="right-controls">
             <button class="settings-btn" onclick="openSettings()">⚙️</button>
-            <div class="flag" id="languageFlag" title="Getting Started"></div>
+            <div class="flag english" id="currentFlag" title="English"></div>
         </div>
     </div>
 
     <div class="conversation-container">
         <div class="conversation-window" id="conversationWindow">
             <div class="welcome-message">
-                🎤 Click "Start Talking" to begin your language learning journey<br>
-                <small>I'll help you get started step by step!</small>
+                🎤 Click "Start Talking" to begin your conversation with AIS<br>
+                <small>(Grant microphone permission when prompted)</small>
             </div>
         </div>
 
         <div class="listening-indicator" id="listeningIndicator">
-            🎙️ Listening... speak naturally
+            🎙️ Listening... speak naturally and AIS will respond when you're done
         </div>
 
         <div class="voice-controls">
@@ -593,32 +618,29 @@
 
     <script>
         const CONFIG = {
-            BACKEND_URL: 'https://script.google.com/macros/s/AKfycbz0wLu-0BwQNhV69DA2J18m-RALBeX4nDQBNxS5hn2ayDofxHpSOQXe4UXYl1s5nnIh/exec',
+            BACKEND_URL: 'https://script.google.com/macros/s/AKfycbzy-obtumsCDJR3NT1l2eaRMsA4skAalGoz0E1NX-P1euM1xA10CjNbZntlIMd8Pq4b/exec',
+            CURRENT_LANGUAGE: 'English', // Start with English for onboarding
             USER_ID: 'user_' + Math.random().toString(36).substr(2, 9)
         };
-
-        // User profile and conversation state
-        let userProfile = {
-            name: null,
-            targetLanguage: null,
-            age: null,
-            interests: null,
-            languageReady: false
-        };
-        
-        let conversationHistory = [];
-        let onboardingComplete = false;
 
         let isListening = false;
         let recognition;
         let speechSynthesis = window.speechSynthesis;
         let currentSpeechRate = 0.9;
         let lastGrammarExplanation = '';
+        let userProfile = {
+            name: null,
+            age: null,
+            targetLanguage: null,
+            interests: [],
+            onboardingComplete: false
+        };
         let voiceSettings = {
             gender: 'female',
             germanAccent: 'de-DE',
             englishAccent: 'en-US',
-            spanishAccent: 'es-MX'
+            spanishAccent: 'es-MX',
+            frenchAccent: 'fr-FR'
         };
 
         const listenBtn = document.getElementById('listenBtn');
@@ -627,71 +649,7 @@
         const conversationWindow = document.getElementById('conversationWindow');
         const speedSlider = document.getElementById('speedSlider');
         const speedValue = document.getElementById('speedValue');
-        const languageFlag = document.getElementById('languageFlag');
-
-        // Initialize with onboarding
-        window.onload = function() {
-            console.log('RealTalk Onboarding System initialized');
-            console.log('User ID:', CONFIG.USER_ID);
-            
-            // Load any saved profile
-            loadUserProfile();
-            
-            // Start onboarding conversation
-            if (!userProfile.name) {
-                setTimeout(() => {
-                    addAISMessage("Hi! I'm your language buddy. What's your name?", "");
-                }, 1000);
-            }
-        };
-
-        // Load user profile from localStorage
-        function loadUserProfile() {
-            try {
-                const saved = localStorage.getItem('realtalk_profile_' + CONFIG.USER_ID);
-                if (saved) {
-                    userProfile = { ...userProfile, ...JSON.parse(saved) };
-                    console.log('Loaded user profile:', userProfile);
-                    updateFlagForLanguage(userProfile.targetLanguage);
-                }
-            } catch (error) {
-                console.log('No previous user profile');
-            }
-        }
-
-        // Save user profile to localStorage
-        function saveUserProfile() {
-            try {
-                localStorage.setItem('realtalk_profile_' + CONFIG.USER_ID, JSON.stringify(userProfile));
-            } catch (error) {
-                console.error('Failed to save user profile:', error);
-            }
-        }
-
-        // Update flag based on selected language
-        function updateFlagForLanguage(language) {
-            if (!language) return;
-            
-            const flag = document.getElementById('languageFlag');
-            flag.className = 'flag';
-            
-            switch (language.toLowerCase()) {
-                case 'german':
-                    flag.classList.add('german');
-                    flag.title = 'German';
-                    break;
-                case 'spanish':
-                    flag.classList.add('spanish');
-                    flag.title = 'Spanish';
-                    break;
-                case 'french':
-                    flag.classList.add('french');
-                    flag.title = 'French';
-                    break;
-                default:
-                    flag.title = language;
-            }
-        }
+        const currentFlag = document.getElementById('currentFlag');
 
         // Speed control
         speedSlider.addEventListener('input', function() {
@@ -717,23 +675,42 @@
             console.log('Voice settings updated:', voiceSettings);
         }
 
-        // Enhanced speech recognition
+        // Update flag based on current language
+        function updateFlag(language) {
+            currentFlag.className = 'flag';
+            switch (language.toLowerCase()) {
+                case 'german':
+                    currentFlag.classList.add('german');
+                    currentFlag.title = 'German';
+                    break;
+                case 'spanish':
+                    currentFlag.classList.add('spanish');
+                    currentFlag.title = 'Spanish';
+                    break;
+                case 'french':
+                    currentFlag.classList.add('french');
+                    currentFlag.title = 'French';
+                    break;
+                default:
+                    currentFlag.classList.add('english');
+                    currentFlag.title = 'English';
+            }
+        }
+
+        // Initialize speech recognition with better pause detection
         function initializeSpeechRecognition() {
             if ('webkitSpeechRecognition' in window && !recognition) {
                 recognition = new webkitSpeechRecognition();
                 recognition.continuous = true;
                 recognition.interimResults = true;
-                
-                // Use English for onboarding, target language after
-                recognition.lang = onboardingComplete && userProfile.targetLanguage === 'German' ? 
-                    voiceSettings.germanAccent : 'en-US';
+                recognition.lang = getCurrentLanguageCode();
                 
                 let finalTranscript = '';
                 let interimTranscript = '';
                 let speechTimeout;
                 
                 recognition.onstart = function() {
-                    console.log('Speech recognition started');
+                    console.log('Speech recognition started - continuous listening mode');
                     isListening = true;
                     finalTranscript = '';
                     interimTranscript = '';
@@ -775,7 +752,6 @@
                         clearTimeout(speechTimeout);
                     }
                     
-                    // Wait for natural pause
                     speechTimeout = setTimeout(() => {
                         if (finalTranscript.trim()) {
                             console.log('Natural pause detected, processing:', finalTranscript);
@@ -801,12 +777,25 @@
             }
         }
 
+        function getCurrentLanguageCode() {
+            if (!userProfile.onboardingComplete) {
+                return voiceSettings.englishAccent; // Use English during onboarding
+            }
+            
+            switch (CONFIG.CURRENT_LANGUAGE.toLowerCase()) {
+                case 'german': return voiceSettings.germanAccent;
+                case 'spanish': return voiceSettings.spanishAccent;
+                case 'french': return voiceSettings.frenchAccent;
+                default: return voiceSettings.englishAccent;
+            }
+        }
+
         function updateListeningFeedback(transcript) {
             const indicator = document.getElementById('listeningIndicator');
             if (transcript.trim()) {
-                indicator.innerHTML = `🎙️ Hearing: "${transcript.trim()}" <em>(continue...)</em>`;
+                indicator.innerHTML = `🎙️ Hearing: "${transcript.trim()}" <em>(keep talking...)</em>`;
             } else {
-                indicator.innerHTML = '🎙️ Listening... speak naturally';
+                indicator.innerHTML = '🎙️ Listening... speak naturally and AIS will respond when you\'re done';
             }
         }
 
@@ -821,9 +810,7 @@
             } else {
                 if (recognition) {
                     try {
-                        // Update language for recognition
-                        recognition.lang = onboardingComplete && userProfile.targetLanguage === 'German' ? 
-                            voiceSettings.germanAccent : 'en-US';
+                        recognition.lang = getCurrentLanguageCode();
                         recognition.start();
                     } catch (error) {
                         console.error('Error starting recognition:', error);
@@ -831,7 +818,7 @@
                             try {
                                 recognition.start();
                             } catch (e) {
-                                alert('Microphone access issue. Please refresh and try again.');
+                                alert('Microphone access issue. Please refresh the page and try again.');
                             }
                         }, 500);
                     }
@@ -849,195 +836,168 @@
             }
         });
 
-        // Process user input with comprehensive error handling
+        // Process user input
         async function processUserInput(userInput) {
             try {
-                console.log('Processing input:', userInput);
+                console.log('Processing user input:', userInput);
                 addUserMessage(userInput);
                 const loadingId = addAISMessage('', '', true);
                 listenBtn.disabled = true;
                 
-                let response;
-                try {
-                    response = await callBackend(userInput);
-                } catch (backendError) {
-                    console.error('Backend call failed:', backendError);
-                    
-                    // Remove loading message
-                    const loadingElement = document.getElementById(loadingId);
-                    if (loadingElement) {
-                        loadingElement.remove();
-                    }
-                    
-                    // Show error to user
-                    addAISMessage(
-                        'Entschuldigung, ich habe ein technisches Problem.',
-                        '(Sorry, I am having a technical issue: ' + backendError.message + ')'
-                    );
-                    return;
-                }
+                const response = await callBackend(userInput);
+                console.log('Got response:', response);
                 
-                console.log('Backend response received:', response);
-                
-                // Remove loading message
                 const loadingElement = document.getElementById(loadingId);
                 if (loadingElement) {
                     loadingElement.remove();
                 }
                 
-                // Validate response structure
-                if (!response || !response.success || !response.response) {
-                    console.error('Invalid response structure:', response);
+                if (response && response.success) {
+                    // Handle profile updates from onboarding
+                    if (response.profileUpdate) {
+                        updateUserProfile(response.profileUpdate);
+                    }
+                    
+                    // Handle language switching
+                    if (response.languageSwitch) {
+                        CONFIG.CURRENT_LANGUAGE = response.languageSwitch;
+                        updateFlag(CONFIG.CURRENT_LANGUAGE);
+                        console.log('Switched to:', CONFIG.CURRENT_LANGUAGE);
+                    }
+                    
+                    // Show correction if needed
+                    if (response.response.clarificationNeeded) {
+                        addClarificationMessage(response.response.heard, response.response.translation, response.response.suggested, response.response.suggestedTranslation);
+                    }
+                    
                     addAISMessage(
-                        'Entschuldigung, ich verstehe nicht.',
-                        '(Sorry, I don\'t understand - invalid response format)'
+                        response.response.targetLanguage,
+                        response.response.translation
                     );
-                    return;
-                }
-                
-                const aisResponse = response.response;
-                
-                // Handle profile updates if present
-                if (aisResponse.profileUpdate) {
-                    console.log('Profile update detected:', aisResponse.profileUpdate);
-                    updateUserProfile(aisResponse.profileUpdate);
-                }
-                
-                // Handle clarifications
-                if (aisResponse.needsClarification && aisResponse.clarificationRequest) {
-                    addClarificationMessage(aisResponse.clarificationRequest);
-                } else if (aisResponse.correctionMade && aisResponse.originalHeard && aisResponse.probableMeant) {
-                    addCorrectionMessage(aisResponse.originalHeard, aisResponse.probableMeant);
-                }
-                
-                // Add AIS response
-                addAISMessage(
-                    aisResponse.targetLanguage || 'No response generated',
-                    aisResponse.translation || '(No translation available)'
-                );
-                
-                // Save grammar explanation if present
-                if (aisResponse.grammarExplanation) {
-                    lastGrammarExplanation = aisResponse.grammarExplanation;
-                }
-                
-                // Speak the response
-                if (aisResponse.targetLanguage) {
-                    speakGerman(aisResponse.targetLanguage);
+                    
+                    if (response.response.grammarExplanation) {
+                        lastGrammarExplanation = response.response.grammarExplanation;
+                    }
+                    
+                    speakResponse(response.response.targetLanguage);
+                } else {
+                    console.error('Backend error:', response);
+                    addAISMessage(
+                        'Sorry, I\'m having a technical issue.',
+                        '(Technical problem - please try again)'
+                    );
                 }
                 
             } catch (error) {
-                console.error('processUserInput error:', error);
-                console.error('Error stack:', error.stack);
-                
-                // Emergency fallback
+                console.error('Processing error:', error);
                 addAISMessage(
-                    'Es tut mir leid, ich habe ein Problem.',
-                    '(Sorry, I have a problem: ' + error.message + ')'
+                    'Connection error. Please check your internet.',
+                    '(Network issue)'
                 );
-                
             } finally {
                 listenBtn.disabled = false;
             }
         }
 
-       // Call backend with better error handling and debugging
-        async function callBackend(userInput) {
-            try {
-                const payload = {
-                    action: 'conversation',
-                    userId: CONFIG.USER_ID,
-                    userInput: userInput,
-                    language: CONFIG.CURRENT_LANGUAGE
-                };
-
-                console.log('Calling backend with payload:', payload);
-                
-                const params = new URLSearchParams(payload);
-                const url = `${CONFIG.BACKEND_URL}?${params}`;
-                console.log('Full URL:', url);
-                
-                const response = await fetch(url);
-                console.log('Raw response status:', response.status);
-                console.log('Raw response headers:', response.headers);
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-                
-                const textResponse = await response.text();
-                console.log('Raw response text:', textResponse);
-                
-                let data;
-                try {
-                    data = JSON.parse(textResponse);
-                    console.log('Parsed response data:', data);
-                } catch (parseError) {
-                    console.error('JSON parse error:', parseError);
-                    console.error('Response text that failed to parse:', textResponse);
-                    throw new Error('Backend returned invalid JSON: ' + textResponse.substring(0, 100));
-                }
-                
-                // Validate the response structure
-                if (!data) {
-                    throw new Error('Backend returned null/undefined data');
-                }
-                
-                if (!data.hasOwnProperty('success')) {
-                    console.error('Response missing success property:', data);
-                    throw new Error('Invalid response format - missing success property');
-                }
-                
-                if (!data.success) {
-                    console.error('Backend reported failure:', data);
-                    throw new Error('Backend error: ' + (data.error || 'Unknown error'));
-                }
-                
-                if (!data.response) {
-                    console.error('Response missing response property:', data);
-                    throw new Error('Backend success but missing response data');
-                }
-                
-                return data;
-                
-            } catch (error) {
-                console.error('Backend call failed:', error);
-                throw error;
+        // Update user profile from backend responses
+        function updateUserProfile(profileData) {
+            console.log('Updating profile:', profileData);
+            Object.assign(userProfile, profileData);
+            
+            if (profileData.onboardingComplete) {
+                const welcome = conversationWindow.querySelector('.welcome-message');
+                if (welcome) welcome.remove();
             }
         }
 
-        function speakResponse(text, targetLanguage) {
+        // Call backend
+        async function callBackend(userInput) {
+            const payload = {
+                action: 'conversation',
+                userId: CONFIG.USER_ID,
+                userInput: userInput,
+                language: CONFIG.CURRENT_LANGUAGE,
+                userProfile: JSON.stringify(userProfile)
+            };
+
+            const params = new URLSearchParams(payload);
+            const response = await fetch(`${CONFIG.BACKEND_URL}?${params}`);
+            const data = await response.json();
+            return data;
+        }
+
+        // UI functions
+        function addUserMessage(text) {
+            const message = document.createElement('div');
+            message.className = 'message user-message';
+            message.innerHTML = `
+                <div class="target-language">${text}</div>
+                <div class="translation">(You said)</div>
+            `;
+            conversationWindow.appendChild(message);
+            scrollToBottom();
+            
+            const welcome = conversationWindow.querySelector('.welcome-message');
+            if (welcome) welcome.remove();
+        }
+
+        function addAISMessage(text, translation, loading = false) {
+            const messageId = 'msg_' + Date.now();
+            const message = document.createElement('div');
+            message.className = 'message ais-message' + (loading ? ' loading' : '');
+            message.id = messageId;
+            
+            if (loading) {
+                message.innerHTML = `
+                    <div class="target-language">AIS is thinking</div>
+                    <div class="translation">(Generating response...)</div>
+                `;
+            } else {
+                message.innerHTML = `
+                    <div class="target-language">${text}</div>
+                    <div class="translation">${translation}</div>
+                `;
+            }
+            
+            conversationWindow.appendChild(message);
+            scrollToBottom();
+            return messageId;
+        }
+
+        function addClarificationMessage(heard, heardTranslation, suggested, suggestedTranslation) {
+            const message = document.createElement('div');
+            message.className = 'correction-message';
+            message.innerHTML = `
+                <div style="font-weight: 500; margin-bottom: 5px;">🤔 Just to clarify:</div>
+                <div>I heard: "<em>${heard}</em>" (${heardTranslation})</div>
+                <div>Did you mean: "<strong>${suggested}</strong>" (${suggestedTranslation})?</div>
+            `;
+            conversationWindow.appendChild(message);
+            scrollToBottom();
+        }
+
+        function speakResponse(text) {
             speechSynthesis.cancel();
             
             const utterance = new SpeechSynthesisUtterance(text);
-            
-            // Set language for speech
-            if (targetLanguage === 'German') {
-                utterance.lang = voiceSettings.germanAccent;
-            } else if (targetLanguage === 'Spanish') {
-                utterance.lang = voiceSettings.spanishAccent;
-            } else if (targetLanguage === 'French') {
-                utterance.lang = 'fr-FR';
-            } else {
-                utterance.lang = voiceSettings.englishAccent;
-            }
-            
+            utterance.lang = getCurrentLanguageCode();
             utterance.rate = currentSpeechRate;
             utterance.pitch = 1.0;
             utterance.volume = 1.0;
             
-            // Try to get preferred voice
             const voices = speechSynthesis.getVoices();
-            const languageVoices = voices.filter(voice => 
-                voice.lang.startsWith(utterance.lang.substring(0, 2))
-            );
+            const languageVoices = voices.filter(voice => voice.lang.startsWith(getCurrentLanguageCode().substring(0, 2)));
             
             if (languageVoices.length > 0) {
                 const preferredVoice = languageVoices.find(voice => 
                     voice.name.toLowerCase().includes(voiceSettings.gender)
-                ) || languageVoices[0];
+                );
                 
-                utterance.voice = preferredVoice;
+                if (preferredVoice) {
+                    utterance.voice = preferredVoice;
+                } else {
+                    utterance.voice = languageVoices[0];
+                }
             }
             
             setTimeout(() => {
@@ -1057,11 +1017,15 @@
             }
         }
 
-        // Load voices when available
+        // Initialize
+        console.log('RealTalk initialized successfully');
+        
         speechSynthesis.onvoiceschanged = function() {
-            const voices = speechSynthesis.getVoices();
-            console.log('Available voices loaded:', voices.length);
+            console.log('Available voices loaded');
         };
+
+        // Start with English flag for onboarding
+        updateFlag('English');
     </script>
 </body>
 </html>
