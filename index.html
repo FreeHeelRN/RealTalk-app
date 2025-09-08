@@ -920,79 +920,69 @@
             }
         }
 
-        // Call backend with profile and context
+       // Call backend with better error handling and debugging
         async function callBackend(userInput) {
-            const payload = {
-                action: 'conversation',
-                userInput: userInput,
-                userProfile: encodeURIComponent(JSON.stringify(userProfile)),
-                conversationContext: getConversationContext()
-            };
+            try {
+                const payload = {
+                    action: 'conversation',
+                    userId: CONFIG.USER_ID,
+                    userInput: userInput,
+                    language: CONFIG.CURRENT_LANGUAGE
+                };
 
-            const params = new URLSearchParams(payload);
-            const response = await fetch(`${CONFIG.BACKEND_URL}?${params}`);
-            const data = await response.json();
-            return data;
-        }
-
-        // Get conversation context
-        function getConversationContext() {
-            const recent = conversationHistory.slice(-6);
-            return recent.map(msg => 
-                `${msg.speaker.toUpperCase()}: ${msg.message} ${msg.translation ? '(' + msg.translation + ')' : ''}`
-            ).join('\n');
-        }
-
-        // Add to conversation history
-        function addToHistory(speaker, message, translation = '') {
-            conversationHistory.push({
-                timestamp: new Date().toISOString(),
-                speaker: speaker,
-                message: message,
-                translation: translation
-            });
-            
-            if (conversationHistory.length > 20) {
-                conversationHistory = conversationHistory.slice(-20);
+                console.log('Calling backend with payload:', payload);
+                
+                const params = new URLSearchParams(payload);
+                const url = `${CONFIG.BACKEND_URL}?${params}`;
+                console.log('Full URL:', url);
+                
+                const response = await fetch(url);
+                console.log('Raw response status:', response.status);
+                console.log('Raw response headers:', response.headers);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const textResponse = await response.text();
+                console.log('Raw response text:', textResponse);
+                
+                let data;
+                try {
+                    data = JSON.parse(textResponse);
+                    console.log('Parsed response data:', data);
+                } catch (parseError) {
+                    console.error('JSON parse error:', parseError);
+                    console.error('Response text that failed to parse:', textResponse);
+                    throw new Error('Backend returned invalid JSON: ' + textResponse.substring(0, 100));
+                }
+                
+                // Validate the response structure
+                if (!data) {
+                    throw new Error('Backend returned null/undefined data');
+                }
+                
+                if (!data.hasOwnProperty('success')) {
+                    console.error('Response missing success property:', data);
+                    throw new Error('Invalid response format - missing success property');
+                }
+                
+                if (!data.success) {
+                    console.error('Backend reported failure:', data);
+                    throw new Error('Backend error: ' + (data.error || 'Unknown error'));
+                }
+                
+                if (!data.response) {
+                    console.error('Response missing response property:', data);
+                    throw new Error('Backend success but missing response data');
+                }
+                
+                return data;
+                
+            } catch (error) {
+                console.error('Backend call failed:', error);
+                throw error;
             }
-        }
-
-        // UI functions
-        function addUserMessage(text) {
-            const message = document.createElement('div');
-            message.className = 'message user-message';
-            message.innerHTML = `
-                <div class="target-language">${text}</div>
-                <div class="translation">(You said)</div>
-            `;
-            conversationWindow.appendChild(message);
-            scrollToBottom();
-            
-            const welcome = conversationWindow.querySelector('.welcome-message');
-            if (welcome) welcome.remove();
-        }
-
-        function addAISMessage(text, translation, loading = false) {
-            const messageId = 'msg_' + Date.now();
-            const message = document.createElement('div');
-            message.className = 'message ais-message' + (loading ? ' loading' : '');
-            message.id = messageId;
-            
-            if (loading) {
-                message.innerHTML = `
-                    <div class="target-language">AIS is thinking</div>
-                    <div class="translation">(Processing your response...)</div>
-                `;
-            } else {
-                message.innerHTML = `
-                    <div class="target-language">${text}</div>
-                    ${translation ? `<div class="translation">${translation}</div>` : ''}
-                `;
-            }
-            
-            conversationWindow.appendChild(message);
-            scrollToBottom();
-            return messageId;
         }
 
         function speakResponse(text, targetLanguage) {
