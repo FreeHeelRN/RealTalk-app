@@ -81,9 +81,30 @@
             border-radius: 4px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.3);
             background: linear-gradient(to bottom, 
+                #ccc 33.33%, 
+                #ccc 33.33% 66.66%, 
+                #ccc 66.66%);
+        }
+
+        .flag.german {
+            background: linear-gradient(to bottom, 
                 #000 33.33%, 
                 #FFCE54 33.33% 66.66%, 
                 #DD0000 66.66%);
+        }
+
+        .flag.spanish {
+            background: linear-gradient(to bottom, 
+                #c60b1e 33.33%, 
+                #ffc400 33.33% 66.66%, 
+                #c60b1e 66.66%);
+        }
+
+        .flag.french {
+            background: linear-gradient(to right, 
+                #0055a4 33.33%, 
+                #ffffff 33.33% 66.66%, 
+                #ef4135 66.66%);
         }
 
         .speed-control {
@@ -197,17 +218,6 @@
             margin-right: auto;
         }
 
-        .onboarding-message {
-            background: rgba(52, 199, 89, 0.1);
-            border-left: 4px solid #34C759;
-            margin: 15px auto;
-            max-width: 90%;
-            padding: 15px;
-            border-radius: 8px;
-            font-size: 14px;
-            color: #666;
-        }
-
         .target-language {
             font-size: 16px;
             font-weight: 500;
@@ -306,26 +316,6 @@
             font-size: 18px;
         }
 
-        .profile-indicator {
-            text-align: center;
-            padding: 10px;
-            color: #34C759;
-            font-size: 12px;
-            font-weight: 500;
-        }
-
-        .onboarding-phase {
-            text-align: center;
-            padding: 8px 15px;
-            color: #007AFF;
-            font-size: 11px;
-            font-weight: 600;
-            background: rgba(0, 122, 255, 0.1);
-            border-radius: 15px;
-            margin: 5px auto;
-            max-width: 200px;
-        }
-
         .message.loading .target-language:after {
             content: "...";
             animation: dots 1.5s infinite;
@@ -402,17 +392,6 @@
             float: right;
         }
 
-        .reset-btn {
-            background: #FF3B30;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 15px;
-            cursor: pointer;
-            font-size: 12px;
-            margin-top: 10px;
-        }
-
         /* Dark mode support */
         @media (prefers-color-scheme: dark) {
             .conversation-window {
@@ -466,16 +445,6 @@
                 background: #3C3C3E;
                 color: #fff;
                 border-color: #555;
-            }
-
-            .onboarding-message {
-                background: rgba(52, 199, 89, 0.2);
-                color: #ccc;
-            }
-
-            .onboarding-phase {
-                background: rgba(0, 122, 255, 0.2);
-                color: #5AC8FA;
             }
         }
 
@@ -555,28 +524,20 @@
 
         <div class="right-controls">
             <button class="settings-btn" onclick="openSettings()">⚙️</button>
-            <div class="flag" title="German"></div>
+            <div class="flag" id="languageFlag" title="Getting Started"></div>
         </div>
     </div>
 
     <div class="conversation-container">
         <div class="conversation-window" id="conversationWindow">
             <div class="welcome-message">
-                🎤 Hi! I'm your German language buddy. Let's get to know each other first!<br>
-                <small>Click "Start Talking" and tell me your name</small>
+                🎤 Click "Start Talking" to begin your language learning journey<br>
+                <small>I'll help you get started step by step!</small>
             </div>
         </div>
 
-        <div class="onboarding-phase" id="onboardingPhase">
-            English Setup Phase
-        </div>
-
-        <div class="profile-indicator" id="profileIndicator">
-            Getting to know you...
-        </div>
-
         <div class="listening-indicator" id="listeningIndicator">
-            🎙️ Listening... speak in English during setup
+            🎙️ Listening... speak naturally
         </div>
 
         <div class="voice-controls">
@@ -588,7 +549,7 @@
     <!-- Settings Modal -->
     <div id="settingsModal" class="settings-modal">
         <div class="settings-content">
-            <div class="settings-header">Settings</div>
+            <div class="settings-header">Voice Settings</div>
             
             <div class="setting-group">
                 <label class="setting-label">Voice Gender:</label>
@@ -608,11 +569,22 @@
             </div>
             
             <div class="setting-group">
-                <label class="setting-label">Current Profile:</label>
-                <div id="profileDisplay" style="background: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 14px; margin-bottom: 10px;">
-                    Loading profile...
-                </div>
-                <button class="reset-btn" onclick="resetProfile()">Reset Profile & Start Over</button>
+                <label class="setting-label">English Accent:</label>
+                <select class="setting-select" id="englishAccent">
+                    <option value="en-US">North American</option>
+                    <option value="en-GB">British</option>
+                    <option value="en-AU">Australian</option>
+                    <option value="en-NZ">New Zealand</option>
+                </select>
+            </div>
+            
+            <div class="setting-group">
+                <label class="setting-label">Spanish Accent:</label>
+                <select class="setting-select" id="spanishAccent">
+                    <option value="es-MX">Central American</option>
+                    <option value="es-ES">Spain</option>
+                    <option value="es-AR">Argentinian</option>
+                </select>
             </div>
             
             <button class="close-btn" onclick="closeSettings()">Save Settings</button>
@@ -621,15 +593,21 @@
 
     <script>
         const CONFIG = {
-            BACKEND_URL: 'https://script.google.com/macros/s/AKfycbzGmi5Y88QgW93mzqRDzpPRGIS8bwyS4YA8lXH5p5ij-baDA3UXr8fBHPPSHa86I-US/exec',
-            CURRENT_LANGUAGE: 'German',
+            BACKEND_URL: 'https://script.google.com/macros/s/AKfycbz0wLu-0BwQNhV69DA2J18m-RALBeX4nDQBNxS5hn2ayDofxHpSOQXe4UXYl1s5nnIh/exec',
             USER_ID: 'user_' + Math.random().toString(36).substr(2, 9)
         };
 
-        // User profile and conversation memory
-        let userProfile = {};
+        // User profile and conversation state
+        let userProfile = {
+            name: null,
+            targetLanguage: null,
+            age: null,
+            interests: null,
+            languageReady: false
+        };
+        
         let conversationHistory = [];
-        let isOnboardingComplete = false;
+        let onboardingComplete = false;
 
         let isListening = false;
         let recognition;
@@ -639,7 +617,8 @@
         let voiceSettings = {
             gender: 'female',
             germanAccent: 'de-DE',
-            englishAccent: 'en-US'
+            englishAccent: 'en-US',
+            spanishAccent: 'es-MX'
         };
 
         const listenBtn = document.getElementById('listenBtn');
@@ -648,115 +627,71 @@
         const conversationWindow = document.getElementById('conversationWindow');
         const speedSlider = document.getElementById('speedSlider');
         const speedValue = document.getElementById('speedValue');
-        const profileIndicator = document.getElementById('profileIndicator');
-        const onboardingPhase = document.getElementById('onboardingPhase');
+        const languageFlag = document.getElementById('languageFlag');
 
-        // Load user data from localStorage
-        function loadUserData() {
+        // Initialize with onboarding
+        window.onload = function() {
+            console.log('RealTalk Onboarding System initialized');
+            console.log('User ID:', CONFIG.USER_ID);
+            
+            // Load any saved profile
+            loadUserProfile();
+            
+            // Start onboarding conversation
+            if (!userProfile.name) {
+                setTimeout(() => {
+                    addAISMessage("Hi! I'm your language buddy. What's your name?", "");
+                }, 1000);
+            }
+        };
+
+        // Load user profile from localStorage
+        function loadUserProfile() {
             try {
-                const savedProfile = localStorage.getItem('realtalk_profile_' + CONFIG.USER_ID);
-                const savedConversation = localStorage.getItem('realtalk_conversation_' + CONFIG.USER_ID);
-                
-                if (savedProfile) {
-                    userProfile = JSON.parse(savedProfile);
+                const saved = localStorage.getItem('realtalk_profile_' + CONFIG.USER_ID);
+                if (saved) {
+                    userProfile = { ...userProfile, ...JSON.parse(saved) };
                     console.log('Loaded user profile:', userProfile);
+                    updateFlagForLanguage(userProfile.targetLanguage);
                 }
-                
-                if (savedConversation) {
-                    conversationHistory = JSON.parse(savedConversation);
-                    console.log('Loaded conversation history:', conversationHistory.length, 'messages');
-                }
-                
-                isOnboardingComplete = userProfile.languageReady || false;
-                updateUIState();
-                
             } catch (error) {
-                console.log('No previous user data found');
-                userProfile = {};
-                conversationHistory = [];
-                updateUIState();
+                console.log('No previous user profile');
             }
         }
 
-        // Save user data to localStorage
-        function saveUserData() {
+        // Save user profile to localStorage
+        function saveUserProfile() {
             try {
                 localStorage.setItem('realtalk_profile_' + CONFIG.USER_ID, JSON.stringify(userProfile));
-                localStorage.setItem('realtalk_conversation_' + CONFIG.USER_ID, JSON.stringify(conversationHistory));
             } catch (error) {
-                console.error('Failed to save user data:', error);
+                console.error('Failed to save user profile:', error);
             }
         }
 
-        // Update UI state based on onboarding progress
-        function updateUIState() {
-            let status = '';
-            let phase = '';
+        // Update flag based on selected language
+        function updateFlagForLanguage(language) {
+            if (!language) return;
             
-            if (isOnboardingComplete) {
-                phase = 'German Conversation Mode';
-                status = `Ready to chat with ${userProfile.name}!`;
-                profileIndicator.style.color = '#34C759';
-                onboardingPhase.style.background = 'rgba(52, 199, 89, 0.1)';
-                onboardingPhase.style.color = '#34C759';
-                listeningIndicator.innerHTML = '🎙️ Listening... speak in German naturally';
-            } else if (userProfile.name && userProfile.age && userProfile.interests) {
-                phase = 'Ready for German!';
-                status = `${userProfile.name}, ${userProfile.age} - Switching to German...`;
-                profileIndicator.style.color = '#FF9500';
-                onboardingPhase.style.background = 'rgba(255, 149, 0, 0.1)';
-                onboardingPhase.style.color = '#FF9500';
-                listeningIndicator.innerHTML = '🎙️ Listening... transitioning to German';
-            } else if (userProfile.name && userProfile.age) {
-                phase = 'Learning Your Interests';
-                status = `${userProfile.name}, ${userProfile.age} - What do you like?`;
-                profileIndicator.style.color = '#FF9500';
-                onboardingPhase.style.color = '#007AFF';
-                listeningIndicator.innerHTML = '🎙️ Listening... speak in English';
-            } else if (userProfile.name) {
-                phase = 'Learning Your Age';
-                status = `Hi ${userProfile.name}! How old are you?`;
-                profileIndicator.style.color = '#FF9500';
-                onboardingPhase.style.color = '#007AFF';
-                listeningIndicator.innerHTML = '🎙️ Listening... speak in English';
-            } else {
-                phase = 'English Setup Phase';
-                status = 'Getting to know you...';
-                profileIndicator.style.color = '#666';
-                onboardingPhase.style.color = '#007AFF';
-                listeningIndicator.innerHTML = '🎙️ Listening... speak in English during setup';
+            const flag = document.getElementById('languageFlag');
+            flag.className = 'flag';
+            
+            switch (language.toLowerCase()) {
+                case 'german':
+                    flag.classList.add('german');
+                    flag.title = 'German';
+                    break;
+                case 'spanish':
+                    flag.classList.add('spanish');
+                    flag.title = 'Spanish';
+                    break;
+                case 'french':
+                    flag.classList.add('french');
+                    flag.title = 'French';
+                    break;
+                default:
+                    flag.title = language;
             }
-            
-            profileIndicator.textContent = status;
-            onboardingPhase.textContent = phase;
         }
-
-        // Add message to conversation history
-        function addToHistory(speaker, message, translation = '') {
-            conversationHistory.push({
-                timestamp: new Date().toISOString(),
-                speaker: speaker,
-                message: message,
-                translation: translation
-            });
-            
-            if (conversationHistory.length > 20) {
-                conversationHistory = conversationHistory.slice(-20);
-            }
-            
-            saveUserData();
-        }
-
-        // Get conversation context for backend
-        function getConversationContext() {
-            const recentMessages = conversationHistory.slice(-6);
-            return recentMessages.map(msg => 
-                `${msg.speaker.toUpperCase()}: ${msg.message} ${msg.translation ? '(' + msg.translation + ')' : ''}`
-            ).join('\n');
-        }
-
-        // Initialize on page load
-        loadUserData();
 
         // Speed control
         speedSlider.addEventListener('input', function() {
@@ -770,51 +705,16 @@
         // Settings functions
         function openSettings() {
             document.getElementById('settingsModal').style.display = 'block';
-            updateProfileDisplay();
         }
 
         function closeSettings() {
             voiceSettings.gender = document.getElementById('voiceGender').value;
             voiceSettings.germanAccent = document.getElementById('germanAccent').value;
+            voiceSettings.englishAccent = document.getElementById('englishAccent').value;
+            voiceSettings.spanishAccent = document.getElementById('spanishAccent').value;
             
             document.getElementById('settingsModal').style.display = 'none';
-            console.log('Settings updated:', voiceSettings);
-        }
-
-        function updateProfileDisplay() {
-            const display = document.getElementById('profileDisplay');
-            if (Object.keys(userProfile).length === 0) {
-                display.textContent = 'No profile data yet - start a conversation!';
-            } else {
-                display.innerHTML = `
-                    <strong>Name:</strong> ${userProfile.name || 'Not set'}<br>
-                    <strong>Age:</strong> ${userProfile.age || 'Not set'}<br>
-                    <strong>Interests:</strong> ${userProfile.interests || 'Not set'}<br>
-                    <strong>Language Ready:</strong> ${isOnboardingComplete ? 'Yes' : 'No'}<br>
-                    <strong>Conversations:</strong> ${conversationHistory.length} messages
-                `;
-            }
-        }
-
-        function resetProfile() {
-            if (confirm('This will delete your profile and conversation history. Are you sure?')) {
-                userProfile = {};
-                conversationHistory = [];
-                isOnboardingComplete = false;
-                localStorage.removeItem('realtalk_profile_' + CONFIG.USER_ID);
-                localStorage.removeItem('realtalk_conversation_' + CONFIG.USER_ID);
-                updateUIState();
-                updateProfileDisplay();
-                
-                conversationWindow.innerHTML = `
-                    <div class="welcome-message">
-                        🎤 Hi! I'm your German language buddy. Let's get to know each other first!<br>
-                        <small>Click "Start Talking" and tell me your name</small>
-                    </div>
-                `;
-                
-                alert('Profile reset! You can start fresh.');
-            }
+            console.log('Voice settings updated:', voiceSettings);
         }
 
         // Enhanced speech recognition
@@ -824,15 +724,16 @@
                 recognition.continuous = true;
                 recognition.interimResults = true;
                 
-                // Set language based on onboarding state
-                recognition.lang = isOnboardingComplete ? voiceSettings.germanAccent : 'en-US';
+                // Use English for onboarding, target language after
+                recognition.lang = onboardingComplete && userProfile.targetLanguage === 'German' ? 
+                    voiceSettings.germanAccent : 'en-US';
                 
                 let finalTranscript = '';
                 let interimTranscript = '';
                 let speechTimeout;
                 
                 recognition.onstart = function() {
-                    console.log('Speech recognition started - onboarding:', !isOnboardingComplete);
+                    console.log('Speech recognition started');
                     isListening = true;
                     finalTranscript = '';
                     interimTranscript = '';
@@ -874,9 +775,10 @@
                         clearTimeout(speechTimeout);
                     }
                     
+                    // Wait for natural pause
                     speechTimeout = setTimeout(() => {
                         if (finalTranscript.trim()) {
-                            console.log('Processing complete thought:', finalTranscript);
+                            console.log('Natural pause detected, processing:', finalTranscript);
                             recognition.stop();
                             processUserInput(finalTranscript.trim());
                             finalTranscript = '';
@@ -902,8 +804,9 @@
         function updateListeningFeedback(transcript) {
             const indicator = document.getElementById('listeningIndicator');
             if (transcript.trim()) {
-                const lang = isOnboardingComplete ? 'German' : 'English';
-                indicator.innerHTML = `🎙️ Hearing: "${transcript.trim()}" <em>(continue in ${lang}...)</em>`;
+                indicator.innerHTML = `🎙️ Hearing: "${transcript.trim()}" <em>(continue...)</em>`;
+            } else {
+                indicator.innerHTML = '🎙️ Listening... speak naturally';
             }
         }
 
@@ -918,8 +821,9 @@
             } else {
                 if (recognition) {
                     try {
-                        // Set language based on onboarding state
-                        recognition.lang = isOnboardingComplete ? voiceSettings.germanAccent : 'en-US';
+                        // Update language for recognition
+                        recognition.lang = onboardingComplete && userProfile.targetLanguage === 'German' ? 
+                            voiceSettings.germanAccent : 'en-US';
                         recognition.start();
                     } catch (error) {
                         console.error('Error starting recognition:', error);
@@ -927,7 +831,7 @@
                             try {
                                 recognition.start();
                             } catch (e) {
-                                alert('Microphone access issue. Please refresh the page and try again.');
+                                alert('Microphone access issue. Please refresh and try again.');
                             }
                         }, 500);
                     }
@@ -945,10 +849,10 @@
             }
         });
 
-        // Enhanced conversation processing
+        // Process user input with onboarding flow
         async function processUserInput(userInput) {
             try {
-                console.log('Processing input:', userInput, 'Onboarding complete:', isOnboardingComplete);
+                console.log('Processing user input:', userInput);
                 addUserMessage(userInput);
                 addToHistory('user', userInput);
                 
@@ -964,62 +868,63 @@
                 }
                 
                 if (response && response.success && response.response) {
-                    // Update user profile if new information was gathered
+                    // Update profile if provided
                     if (response.profileUpdate) {
-                        Object.assign(userProfile, response.profileUpdate);
-                        saveUserData();
-                        updateUIState();
-                        console.log('Profile updated:', userProfile);
+                        userProfile = { ...userProfile, ...response.profileUpdate };
+                        saveUserProfile();
+                        console.log('Updated profile:', userProfile);
+                        
+                        // Update flag if language was set
+                        if (response.profileUpdate.targetLanguage) {
+                            updateFlagForLanguage(response.profileUpdate.targetLanguage);
+                        }
                     }
                     
-                    // Check if ready for German
-                    if (response.response.readyForGerman && !isOnboardingComplete) {
-                        isOnboardingComplete = true;
+                    // Check if we're ready for target language
+                    if (response.response.readyForGerman) {
+                        onboardingComplete = true;
                         userProfile.languageReady = true;
-                        saveUserData();
-                        updateUIState();
-                        console.log('Switching to German mode!');
+                        saveUserProfile();
+                        
+                        // Reinitialize speech recognition for target language
+                        recognition = null;
+                        initializeSpeechRecognition();
                     }
                     
                     addAISMessage(
                         response.response.targetLanguage,
-                        response.response.translation
+                        response.response.translation || ""
                     );
                     
                     addToHistory('ais', response.response.targetLanguage, response.response.translation);
                     
-                    if (response.response.grammarExplanation) {
-                        lastGrammarExplanation = response.response.grammarExplanation;
-                    }
+                    // Speak the response
+                    speakResponse(response.response.targetLanguage, userProfile.targetLanguage);
                     
-                    // Speak response (English during onboarding, German after)
-                    speakResponse(response.response.targetLanguage);
                 } else {
                     console.error('Backend error:', response);
                     addAISMessage(
-                        'Sorry, I had a problem. Can you try again?',
-                        '(Technical issue)'
+                        'Sorry, I had a technical problem. Can you try again?',
+                        ''
                     );
                 }
                 
             } catch (error) {
                 console.error('Processing error:', error);
                 addAISMessage(
-                    'Sorry, there was a connection problem.',
-                    '(Network error)'
+                    'Sorry, there was a connection problem. Please try again.',
+                    ''
                 );
             } finally {
                 listenBtn.disabled = false;
             }
         }
 
-        // Call backend with profile information
+        // Call backend with profile and context
         async function callBackend(userInput) {
             const payload = {
                 action: 'conversation',
-                userId: CONFIG.USER_ID,
                 userInput: userInput,
-                language: CONFIG.CURRENT_LANGUAGE,
                 userProfile: encodeURIComponent(JSON.stringify(userProfile)),
                 conversationContext: getConversationContext()
             };
@@ -1028,6 +933,28 @@
             const response = await fetch(`${CONFIG.BACKEND_URL}?${params}`);
             const data = await response.json();
             return data;
+        }
+
+        // Get conversation context
+        function getConversationContext() {
+            const recent = conversationHistory.slice(-6);
+            return recent.map(msg => 
+                `${msg.speaker.toUpperCase()}: ${msg.message} ${msg.translation ? '(' + msg.translation + ')' : ''}`
+            ).join('\n');
+        }
+
+        // Add to conversation history
+        function addToHistory(speaker, message, translation = '') {
+            conversationHistory.push({
+                timestamp: new Date().toISOString(),
+                speaker: speaker,
+                message: message,
+                translation: translation
+            });
+            
+            if (conversationHistory.length > 20) {
+                conversationHistory = conversationHistory.slice(-20);
+            }
         }
 
         // UI functions
@@ -1053,8 +980,8 @@
             
             if (loading) {
                 message.innerHTML = `
-                    <div class="target-language">Thinking...</div>
-                    <div class="translation">(Preparing response...)</div>
+                    <div class="target-language">AIS is thinking</div>
+                    <div class="translation">(Processing your response...)</div>
                 `;
             } else {
                 message.innerHTML = `
@@ -1068,31 +995,38 @@
             return messageId;
         }
 
-        function speakResponse(text) {
+        function speakResponse(text, targetLanguage) {
             speechSynthesis.cancel();
             
             const utterance = new SpeechSynthesisUtterance(text);
+            
+            // Set language for speech
+            if (targetLanguage === 'German') {
+                utterance.lang = voiceSettings.germanAccent;
+            } else if (targetLanguage === 'Spanish') {
+                utterance.lang = voiceSettings.spanishAccent;
+            } else if (targetLanguage === 'French') {
+                utterance.lang = 'fr-FR';
+            } else {
+                utterance.lang = voiceSettings.englishAccent;
+            }
+            
             utterance.rate = currentSpeechRate;
             utterance.pitch = 1.0;
             utterance.volume = 1.0;
             
-            // Set language based on onboarding state
-            if (isOnboardingComplete) {
-                utterance.lang = voiceSettings.germanAccent;
-                // Try to get German voice
-                const voices = speechSynthesis.getVoices();
-                const germanVoices = voices.filter(voice => voice.lang.startsWith('de'));
-                if (germanVoices.length > 0) {
-                    utterance.voice = germanVoices[0];
-                }
-            } else {
-                utterance.lang = 'en-US';
-                // Use English voice during onboarding
-                const voices = speechSynthesis.getVoices();
-                const englishVoices = voices.filter(voice => voice.lang.startsWith('en'));
-                if (englishVoices.length > 0) {
-                    utterance.voice = englishVoices[0];
-                }
+            // Try to get preferred voice
+            const voices = speechSynthesis.getVoices();
+            const languageVoices = voices.filter(voice => 
+                voice.lang.startsWith(utterance.lang.substring(0, 2))
+            );
+            
+            if (languageVoices.length > 0) {
+                const preferredVoice = languageVoices.find(voice => 
+                    voice.name.toLowerCase().includes(voiceSettings.gender)
+                ) || languageVoices[0];
+                
+                utterance.voice = preferredVoice;
             }
             
             setTimeout(() => {
@@ -1112,14 +1046,10 @@
             }
         }
 
-        // Initialize
-        console.log('RealTalk English Onboarding System initialized');
-        console.log('User ID:', CONFIG.USER_ID);
-        console.log('Current profile:', userProfile);
-        console.log('Onboarding complete:', isOnboardingComplete);
-        
+        // Load voices when available
         speechSynthesis.onvoiceschanged = function() {
-            console.log('Available voices loaded');
+            const voices = speechSynthesis.getVoices();
+            console.log('Available voices loaded:', voices.length);
         };
     </script>
 </body>
