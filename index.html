@@ -849,72 +849,93 @@
             }
         });
 
-        // Process user input with onboarding flow
+        // Process user input with comprehensive error handling
         async function processUserInput(userInput) {
             try {
-                console.log('Processing user input:', userInput);
+                console.log('Processing input:', userInput);
                 addUserMessage(userInput);
-                addToHistory('user', userInput);
-                
                 const loadingId = addAISMessage('', '', true);
                 listenBtn.disabled = true;
                 
-                const response = await callBackend(userInput);
-                console.log('Got response:', response);
+                let response;
+                try {
+                    response = await callBackend(userInput);
+                } catch (backendError) {
+                    console.error('Backend call failed:', backendError);
+                    
+                    // Remove loading message
+                    const loadingElement = document.getElementById(loadingId);
+                    if (loadingElement) {
+                        loadingElement.remove();
+                    }
+                    
+                    // Show error to user
+                    addAISMessage(
+                        'Entschuldigung, ich habe ein technisches Problem.',
+                        '(Sorry, I am having a technical issue: ' + backendError.message + ')'
+                    );
+                    return;
+                }
                 
+                console.log('Backend response received:', response);
+                
+                // Remove loading message
                 const loadingElement = document.getElementById(loadingId);
                 if (loadingElement) {
                     loadingElement.remove();
                 }
                 
-                if (response && response.success && response.response) {
-                    // Update profile if provided
-                    if (response.profileUpdate) {
-                        userProfile = { ...userProfile, ...response.profileUpdate };
-                        saveUserProfile();
-                        console.log('Updated profile:', userProfile);
-                        
-                        // Update flag if language was set
-                        if (response.profileUpdate.targetLanguage) {
-                            updateFlagForLanguage(response.profileUpdate.targetLanguage);
-                        }
-                    }
-                    
-                    // Check if we're ready for target language
-                    if (response.response.readyForGerman) {
-                        onboardingComplete = true;
-                        userProfile.languageReady = true;
-                        saveUserProfile();
-                        
-                        // Reinitialize speech recognition for target language
-                        recognition = null;
-                        initializeSpeechRecognition();
-                    }
-                    
+                // Validate response structure
+                if (!response || !response.success || !response.response) {
+                    console.error('Invalid response structure:', response);
                     addAISMessage(
-                        response.response.targetLanguage,
-                        response.response.translation || ""
+                        'Entschuldigung, ich verstehe nicht.',
+                        '(Sorry, I don\'t understand - invalid response format)'
                     );
-                    
-                    addToHistory('ais', response.response.targetLanguage, response.response.translation);
-                    
-                    // Speak the response
-                    speakResponse(response.response.targetLanguage, userProfile.targetLanguage);
-                    
-                } else {
-                    console.error('Backend error:', response);
-                    addAISMessage(
-                        'Sorry, I had a technical problem. Can you try again?',
-                        ''
-                    );
+                    return;
+                }
+                
+                const aisResponse = response.response;
+                
+                // Handle profile updates if present
+                if (aisResponse.profileUpdate) {
+                    console.log('Profile update detected:', aisResponse.profileUpdate);
+                    updateUserProfile(aisResponse.profileUpdate);
+                }
+                
+                // Handle clarifications
+                if (aisResponse.needsClarification && aisResponse.clarificationRequest) {
+                    addClarificationMessage(aisResponse.clarificationRequest);
+                } else if (aisResponse.correctionMade && aisResponse.originalHeard && aisResponse.probableMeant) {
+                    addCorrectionMessage(aisResponse.originalHeard, aisResponse.probableMeant);
+                }
+                
+                // Add AIS response
+                addAISMessage(
+                    aisResponse.targetLanguage || 'No response generated',
+                    aisResponse.translation || '(No translation available)'
+                );
+                
+                // Save grammar explanation if present
+                if (aisResponse.grammarExplanation) {
+                    lastGrammarExplanation = aisResponse.grammarExplanation;
+                }
+                
+                // Speak the response
+                if (aisResponse.targetLanguage) {
+                    speakGerman(aisResponse.targetLanguage);
                 }
                 
             } catch (error) {
-                console.error('Processing error:', error);
+                console.error('processUserInput error:', error);
+                console.error('Error stack:', error.stack);
+                
+                // Emergency fallback
                 addAISMessage(
-                    'Sorry, there was a connection problem. Please try again.',
-                    ''
+                    'Es tut mir leid, ich habe ein Problem.',
+                    '(Sorry, I have a problem: ' + error.message + ')'
                 );
+                
             } finally {
                 listenBtn.disabled = false;
             }
