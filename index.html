@@ -620,17 +620,25 @@
             console.log('Voice settings updated:', voiceSettings);
         }
 
-        // Initialize speech recognition
+        // Initialize speech recognition with better pause detection
         function initializeSpeechRecognition() {
             if ('webkitSpeechRecognition' in window && !recognition) {
                 recognition = new webkitSpeechRecognition();
-                recognition.continuous = false;
-                recognition.interimResults = false;
+                recognition.continuous = true; // Keep listening continuously
+                recognition.interimResults = true; // Get partial results
                 recognition.lang = voiceSettings.germanAccent;
                 
+                // Speech detection variables
+                let finalTranscript = '';
+                let interimTranscript = '';
+                let lastSpeechTime = 0;
+                let speechTimeout;
+                
                 recognition.onstart = function() {
-                    console.log('Speech recognition started');
+                    console.log('Speech recognition started - continuous listening mode');
                     isListening = true;
+                    finalTranscript = '';
+                    interimTranscript = '';
                     listenBtn.textContent = '🔴 Listening...';
                     listenBtn.classList.add('listening');
                     listeningIndicator.classList.add('active');
@@ -642,20 +650,54 @@
                     listenBtn.textContent = '🎤 Start Talking';
                     listenBtn.classList.remove('listening');
                     listeningIndicator.classList.remove('active');
+                    
+                    // Clear any pending timeouts
+                    if (speechTimeout) {
+                        clearTimeout(speechTimeout);
+                    }
                 };
                 
                 recognition.onresult = function(event) {
-                    let finalTranscript = '';
-                    for (let i = 0; i < event.results.length; i++) {
+                    interimTranscript = '';
+                    
+                    // Process all results
+                    for (let i = event.resultIndex; i < event.results.length; i++) {
+                        const transcript = event.results[i][0].transcript;
+                        
                         if (event.results[i].isFinal) {
-                            finalTranscript += event.results[i][0].transcript;
+                            finalTranscript += transcript + ' ';
+                        } else {
+                            interimTranscript += transcript;
                         }
                     }
                     
-                    if (finalTranscript.trim()) {
-                        console.log('Speech recognized:', finalTranscript);
-                        processUserInput(finalTranscript.trim());
+                    // Update last speech time when we hear something
+                    if (interimTranscript.trim() || finalTranscript.trim()) {
+                        lastSpeechTime = Date.now();
+                        
+                        // Show what we're hearing in real-time (optional visual feedback)
+                        updateListeningFeedback(finalTranscript + interimTranscript);
                     }
+                    
+                    // Clear existing timeout and set new one
+                    if (speechTimeout) {
+                        clearTimeout(speechTimeout);
+                    }
+                    
+                    // Wait for natural pause (2.5 seconds of silence after speech)
+                    speechTimeout = setTimeout(() => {
+                        if (finalTranscript.trim()) {
+                            console.log('Natural pause detected, processing:', finalTranscript);
+                            
+                            // Stop recognition and process the complete thought
+                            recognition.stop();
+                            processUserInput(finalTranscript.trim());
+                            
+                            // Clear variables
+                            finalTranscript = '';
+                            interimTranscript = '';
+                        }
+                    }, 2500); // 2.5 second pause = natural conversation break
                 };
 
                 recognition.onerror = function(event) {
@@ -664,7 +706,21 @@
                     listenBtn.textContent = '🎤 Start Talking';
                     listenBtn.classList.remove('listening');
                     listeningIndicator.classList.remove('active');
+                    
+                    if (speechTimeout) {
+                        clearTimeout(speechTimeout);
+                    }
                 };
+            }
+        }
+
+        // Optional: Show real-time feedback of what's being heard
+        function updateListeningFeedback(transcript) {
+            const indicator = document.getElementById('listeningIndicator');
+            if (transcript.trim()) {
+                indicator.innerHTML = `🎙️ Hearing: "${transcript.trim()}" <em>(keep talking...)</em>`;
+            } else {
+                indicator.innerHTML = '🎙️ Listening... speak naturally and AIS will respond when you\'re done';
             }
         }
 
