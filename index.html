@@ -197,6 +197,17 @@
             margin-right: auto;
         }
 
+        .clarification-message {
+            background: rgba(255, 206, 84, 0.15);
+            border-left: 4px solid #FFCE54;
+            margin: 15px auto;
+            max-width: 90%;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #666;
+        }
+
         .target-language {
             font-size: 16px;
             font-weight: 500;
@@ -280,6 +291,7 @@
             color: #666;
             font-style: italic;
             display: none;
+            min-height: 40px;
         }
 
         .listening-indicator.active {
@@ -424,6 +436,11 @@
                 color: #fff;
                 border-color: #555;
             }
+
+            .clarification-message {
+                background: rgba(255, 206, 84, 0.2);
+                color: #ccc;
+            }
         }
 
         /* Mobile responsiveness */
@@ -509,8 +526,8 @@
     <div class="conversation-container">
         <div class="conversation-window" id="conversationWindow">
             <div class="welcome-message">
-                🎤 Click "Start Talking" to begin your German conversation with AIS<br>
-                <small>(Grant microphone permission when prompted)</small>
+                🎤 Click "Start Talking" to begin your natural German conversation with AIS<br>
+                <small>(AIS will understand you even with speech recognition errors)</small>
             </div>
         </div>
 
@@ -571,10 +588,13 @@
 
     <script>
         const CONFIG = {
-            BACKEND_URL: 'https://script.google.com/macros/s/AKfycbzy-obtumsCDJR3NT1l2eaRMsA4skAalGoz0E1NX-P1euM1xA10CjNbZntlIMd8Pq4b/exec',
+            BACKEND_URL: 'https://script.google.com/macros/s/AKfycbxnoy7ylT5arKziYxUlIpat7IAgcU75W3KXTc9tq0FThgs8JL1no5erlSDrm3_xE7zI/exec',
             CURRENT_LANGUAGE: 'German',
             USER_ID: 'user_' + Math.random().toString(36).substr(2, 9)
         };
+
+        // Conversation memory stored in browser (scales to millions of users)
+        let conversationHistory = [];
 
         let isListening = false;
         let recognition;
@@ -594,6 +614,57 @@
         const conversationWindow = document.getElementById('conversationWindow');
         const speedSlider = document.getElementById('speedSlider');
         const speedValue = document.getElementById('speedValue');
+
+        // Load conversation history from localStorage
+        function loadConversationHistory() {
+            try {
+                const saved = localStorage.getItem('realtalk_conversation_' + CONFIG.USER_ID);
+                if (saved) {
+                    conversationHistory = JSON.parse(saved);
+                    console.log('Loaded conversation history:', conversationHistory.length, 'messages');
+                }
+            } catch (error) {
+                console.log('No previous conversation history');
+                conversationHistory = [];
+            }
+        }
+
+        // Save conversation history to localStorage
+        function saveConversationHistory() {
+            try {
+                localStorage.setItem('realtalk_conversation_' + CONFIG.USER_ID, JSON.stringify(conversationHistory));
+            } catch (error) {
+                console.error('Failed to save conversation history:', error);
+            }
+        }
+
+        // Add message to conversation history
+        function addToHistory(speaker, message, translation = '') {
+            conversationHistory.push({
+                timestamp: new Date().toISOString(),
+                speaker: speaker, // 'user' or 'ais'
+                message: message,
+                translation: translation
+            });
+            
+            // Keep only last 20 messages for context (prevents memory bloat)
+            if (conversationHistory.length > 20) {
+                conversationHistory = conversationHistory.slice(-20);
+            }
+            
+            saveConversationHistory();
+        }
+
+        // Get conversation context for backend
+        function getConversationContext() {
+            const recentMessages = conversationHistory.slice(-6); // Last 6 messages
+            return recentMessages.map(msg => 
+                `${msg.speaker.toUpperCase()}: ${msg.message} ${msg.translation ? '(' + msg.translation + ')' : ''}`
+            ).join('\n');
+        }
+
+        // Initialize on page load
+        loadConversationHistory();
 
         // Speed control
         speedSlider.addEventListener('input', function() {
@@ -620,7 +691,7 @@
             console.log('Voice settings updated:', voiceSettings);
         }
 
-        // Initialize speech recognition with better pause detection
+        // Enhanced speech recognition with better pause detection
         function initializeSpeechRecognition() {
             if ('webkitSpeechRecognition' in window && !recognition) {
                 recognition = new webkitSpeechRecognition();
@@ -675,7 +746,7 @@
                     if (interimTranscript.trim() || finalTranscript.trim()) {
                         lastSpeechTime = Date.now();
                         
-                        // Show what we're hearing in real-time (optional visual feedback)
+                        // Show what we're hearing in real-time
                         updateListeningFeedback(finalTranscript + interimTranscript);
                     }
                     
@@ -714,11 +785,11 @@
             }
         }
 
-        // Optional: Show real-time feedback of what's being heard
+        // Real-time feedback of what's being heard
         function updateListeningFeedback(transcript) {
             const indicator = document.getElementById('listeningIndicator');
             if (transcript.trim()) {
-                indicator.innerHTML = `🎙️ Hearing: "${transcript.trim()}" <em>(keep talking...)</em>`;
+                indicator.innerHTML = `🎙️ Hearing: "${transcript.trim()}" <em>(continue speaking...)</em>`;
             } else {
                 indicator.innerHTML = '🎙️ Listening... speak naturally and AIS will respond when you\'re done';
             }
@@ -731,6 +802,7 @@
             }
             
             if (isListening) {
+                // Manual stop
                 recognition.stop();
             } else {
                 if (recognition) {
@@ -740,6 +812,14 @@
                         recognition.start();
                     } catch (error) {
                         console.error('Error starting recognition:', error);
+                        // Recognition might already be running, try to restart
+                        setTimeout(() => {
+                            try {
+                                recognition.start();
+                            } catch (e) {
+                                alert('Microphone access issue. Please refresh the page and try again.');
+                            }
+                        }, 500);
                     }
                 } else {
                     alert('Voice recognition not supported. Please use Chrome or Safari.');
@@ -755,27 +835,36 @@
             }
         });
 
-        // Process user input
+        // Enhanced conversation processing with contextual understanding
         async function processUserInput(userInput) {
             try {
-                console.log('Processing input:', userInput);
+                console.log('Processing contextual input:', userInput);
                 addUserMessage(userInput);
+                addToHistory('user', userInput);
+                
                 const loadingId = addAISMessage('', '', true);
                 listenBtn.disabled = true;
                 
                 const response = await callBackend(userInput);
-                console.log('Got response:', response);
+                console.log('Got contextual response:', response);
                 
                 const loadingElement = document.getElementById(loadingId);
                 if (loadingElement) {
                     loadingElement.remove();
                 }
                 
-                if (response && response.success) {
+                if (response && response.success && response.response) {
+                    // Handle clarification requests if needed
+                    if (response.response.clarificationRequested && response.response.clarificationText) {
+                        addClarificationMessage(response.response.clarificationText);
+                    }
+                    
                     addAISMessage(
                         response.response.targetLanguage,
                         response.response.translation
                     );
+                    
+                    addToHistory('ais', response.response.targetLanguage, response.response.translation);
                     
                     if (response.response.grammarExplanation) {
                         lastGrammarExplanation = response.response.grammarExplanation;
@@ -792,18 +881,23 @@
                 
             } catch (error) {
                 console.error('Processing error:', error);
+                addAISMessage(
+                    'Entschuldigung, es gab ein Problem.',
+                    '(Sorry, there was a problem.)'
+                );
             } finally {
                 listenBtn.disabled = false;
             }
         }
 
-        // Call backend
+        // Call backend with conversation context
         async function callBackend(userInput) {
             const payload = {
                 action: 'conversation',
                 userId: CONFIG.USER_ID,
                 userInput: userInput,
-                language: CONFIG.CURRENT_LANGUAGE
+                language: CONFIG.CURRENT_LANGUAGE,
+                conversationContext: getConversationContext()
             };
 
             const params = new URLSearchParams(payload);
@@ -818,7 +912,7 @@
             message.className = 'message user-message';
             message.innerHTML = `
                 <div class="target-language">${text}</div>
-                <div class="translation">(You said in German)</div>
+                <div class="translation">(Your German input)</div>
             `;
             conversationWindow.appendChild(message);
             scrollToBottom();
@@ -835,8 +929,8 @@
             
             if (loading) {
                 message.innerHTML = `
-                    <div class="target-language">AIS is thinking</div>
-                    <div class="translation">(Generating response...)</div>
+                    <div class="target-language">AIS is thinking contextually</div>
+                    <div class="translation">(Analyzing conversation context...)</div>
                 `;
             } else {
                 message.innerHTML = `
@@ -848,6 +942,17 @@
             conversationWindow.appendChild(message);
             scrollToBottom();
             return messageId;
+        }
+
+        function addClarificationMessage(clarificationText) {
+            const message = document.createElement('div');
+            message.className = 'clarification-message';
+            message.innerHTML = `
+                <div style="font-weight: 500; margin-bottom: 8px;">🤔 Clarification Request:</div>
+                <div>${clarificationText}</div>
+            `;
+            conversationWindow.appendChild(message);
+            scrollToBottom();
         }
 
         function speakGerman(text) {
@@ -895,11 +1000,13 @@
         }
 
         // Initialize
-        console.log('RealTalk initialized successfully');
+        console.log('RealTalk Advanced Contextual System initialized');
+        console.log('User ID:', CONFIG.USER_ID);
+        console.log('Conversation history:', conversationHistory.length, 'messages');
         
         // Load voices when available
         speechSynthesis.onvoiceschanged = function() {
-            console.log('Available voices:', speechSynthesis.getVoices().filter(v => v.lang.startsWith('de')));
+            console.log('Available German voices:', speechSynthesis.getVoices().filter(v => v.lang.startsWith('de')));
         };
     </script>
 </body>
