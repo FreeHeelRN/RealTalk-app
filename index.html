@@ -197,9 +197,9 @@
             margin-right: auto;
         }
 
-        .clarification-message {
-            background: rgba(255, 206, 84, 0.15);
-            border-left: 4px solid #FFCE54;
+        .onboarding-message {
+            background: rgba(52, 199, 89, 0.1);
+            border-left: 4px solid #34C759;
             margin: 15px auto;
             max-width: 90%;
             padding: 15px;
@@ -306,6 +306,14 @@
             font-size: 18px;
         }
 
+        .profile-indicator {
+            text-align: center;
+            padding: 10px;
+            color: #34C759;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
         .message.loading .target-language:after {
             content: "...";
             animation: dots 1.5s infinite;
@@ -382,6 +390,17 @@
             float: right;
         }
 
+        .reset-btn {
+            background: #FF3B30;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
         /* Dark mode support */
         @media (prefers-color-scheme: dark) {
             .conversation-window {
@@ -437,8 +456,8 @@
                 border-color: #555;
             }
 
-            .clarification-message {
-                background: rgba(255, 206, 84, 0.2);
+            .onboarding-message {
+                background: rgba(52, 199, 89, 0.2);
                 color: #ccc;
             }
         }
@@ -526,13 +545,17 @@
     <div class="conversation-container">
         <div class="conversation-window" id="conversationWindow">
             <div class="welcome-message">
-                🎤 Click "Start Talking" to begin your natural German conversation with AIS<br>
-                <small>(AIS will understand you even with speech recognition errors)</small>
+                🎤 Hi! I'm your German conversation partner. Click "Start Talking" and tell me your name!<br>
+                <small>(I'll learn about you naturally as we chat)</small>
             </div>
         </div>
 
+        <div class="profile-indicator" id="profileIndicator">
+            Getting to know you...
+        </div>
+
         <div class="listening-indicator" id="listeningIndicator">
-            🎙️ Listening... speak naturally and AIS will respond when you're done
+            🎙️ Listening... speak naturally and I'll respond when you're done
         </div>
 
         <div class="voice-controls">
@@ -544,7 +567,7 @@
     <!-- Settings Modal -->
     <div id="settingsModal" class="settings-modal">
         <div class="settings-content">
-            <div class="settings-header">Voice Settings</div>
+            <div class="settings-header">Settings</div>
             
             <div class="setting-group">
                 <label class="setting-label">Voice Gender:</label>
@@ -564,22 +587,11 @@
             </div>
             
             <div class="setting-group">
-                <label class="setting-label">English Accent:</label>
-                <select class="setting-select" id="englishAccent">
-                    <option value="en-US">North American</option>
-                    <option value="en-GB">British</option>
-                    <option value="en-AU">Australian</option>
-                    <option value="en-NZ">New Zealand</option>
-                </select>
-            </div>
-            
-            <div class="setting-group">
-                <label class="setting-label">Spanish Accent:</label>
-                <select class="setting-select" id="spanishAccent">
-                    <option value="es-MX">Central American</option>
-                    <option value="es-ES">Spain</option>
-                    <option value="es-AR">Argentinian</option>
-                </select>
+                <label class="setting-label">Current Profile:</label>
+                <div id="profileDisplay" style="background: #f5f5f5; padding: 10px; border-radius: 5px; font-size: 14px; margin-bottom: 10px;">
+                    Loading profile...
+                </div>
+                <button class="reset-btn" onclick="resetProfile()">Reset Profile & Start Over</button>
             </div>
             
             <button class="close-btn" onclick="closeSettings()">Save Settings</button>
@@ -588,12 +600,13 @@
 
     <script>
         const CONFIG = {
-            BACKEND_URL: 'https://script.google.com/macros/s/AKfycbxnoy7ylT5arKziYxUlIpat7IAgcU75W3KXTc9tq0FThgs8JL1no5erlSDrm3_xE7zI/exec',
+            BACKEND_URL: 'https://script.google.com/macros/s/AKfycbyyBo9aUNfiQ7U4yEU7Yfpboz5Tva-0fEP9Sg9_A1wlE8uM5y7jUCoA9utxOuUZO8eI/exec',
             CURRENT_LANGUAGE: 'German',
             USER_ID: 'user_' + Math.random().toString(36).substr(2, 9)
         };
 
-        // Conversation memory stored in browser (scales to millions of users)
+        // User profile and conversation memory stored in browser
+        let userProfile = {};
         let conversationHistory = [];
 
         let isListening = false;
@@ -614,57 +627,92 @@
         const conversationWindow = document.getElementById('conversationWindow');
         const speedSlider = document.getElementById('speedSlider');
         const speedValue = document.getElementById('speedValue');
+        const profileIndicator = document.getElementById('profileIndicator');
 
-        // Load conversation history from localStorage
-        function loadConversationHistory() {
+        // Load user data from localStorage
+        function loadUserData() {
             try {
-                const saved = localStorage.getItem('realtalk_conversation_' + CONFIG.USER_ID);
-                if (saved) {
-                    conversationHistory = JSON.parse(saved);
+                const savedProfile = localStorage.getItem('realtalk_profile_' + CONFIG.USER_ID);
+                const savedConversation = localStorage.getItem('realtalk_conversation_' + CONFIG.USER_ID);
+                
+                if (savedProfile) {
+                    userProfile = JSON.parse(savedProfile);
+                    console.log('Loaded user profile:', userProfile);
+                }
+                
+                if (savedConversation) {
+                    conversationHistory = JSON.parse(savedConversation);
                     console.log('Loaded conversation history:', conversationHistory.length, 'messages');
                 }
+                
+                updateProfileIndicator();
+                
             } catch (error) {
-                console.log('No previous conversation history');
+                console.log('No previous user data found');
+                userProfile = {};
                 conversationHistory = [];
+                updateProfileIndicator();
             }
         }
 
-        // Save conversation history to localStorage
-        function saveConversationHistory() {
+        // Save user data to localStorage
+        function saveUserData() {
             try {
+                localStorage.setItem('realtalk_profile_' + CONFIG.USER_ID, JSON.stringify(userProfile));
                 localStorage.setItem('realtalk_conversation_' + CONFIG.USER_ID, JSON.stringify(conversationHistory));
             } catch (error) {
-                console.error('Failed to save conversation history:', error);
+                console.error('Failed to save user data:', error);
             }
+        }
+
+        // Update profile indicator
+        function updateProfileIndicator() {
+            let status = '';
+            if (userProfile.name && userProfile.age) {
+                if (userProfile.interests) {
+                    status = `${userProfile.name}, ${userProfile.age} years old - Ready to chat!`;
+                    profileIndicator.style.color = '#34C759';
+                } else {
+                    status = `${userProfile.name}, ${userProfile.age} - Learning your interests...`;
+                    profileIndicator.style.color = '#FF9500';
+                }
+            } else if (userProfile.name) {
+                status = `Hi ${userProfile.name}! Learning more about you...`;
+                profileIndicator.style.color = '#FF9500';
+            } else {
+                status = 'Getting to know you...';
+                profileIndicator.style.color = '#666';
+            }
+            profileIndicator.textContent = status;
         }
 
         // Add message to conversation history
         function addToHistory(speaker, message, translation = '') {
             conversationHistory.push({
                 timestamp: new Date().toISOString(),
-                speaker: speaker, // 'user' or 'ais'
+                speaker: speaker,
                 message: message,
                 translation: translation
             });
             
-            // Keep only last 20 messages for context (prevents memory bloat)
+            // Keep only last 20 messages for context
             if (conversationHistory.length > 20) {
                 conversationHistory = conversationHistory.slice(-20);
             }
             
-            saveConversationHistory();
+            saveUserData();
         }
 
         // Get conversation context for backend
         function getConversationContext() {
-            const recentMessages = conversationHistory.slice(-6); // Last 6 messages
+            const recentMessages = conversationHistory.slice(-6);
             return recentMessages.map(msg => 
                 `${msg.speaker.toUpperCase()}: ${msg.message} ${msg.translation ? '(' + msg.translation + ')' : ''}`
             ).join('\n');
         }
 
         // Initialize on page load
-        loadConversationHistory();
+        loadUserData();
 
         // Speed control
         speedSlider.addEventListener('input', function() {
@@ -678,35 +726,67 @@
         // Settings functions
         function openSettings() {
             document.getElementById('settingsModal').style.display = 'block';
+            updateProfileDisplay();
         }
 
         function closeSettings() {
-            // Save settings
             voiceSettings.gender = document.getElementById('voiceGender').value;
             voiceSettings.germanAccent = document.getElementById('germanAccent').value;
-            voiceSettings.englishAccent = document.getElementById('englishAccent').value;
-            voiceSettings.spanishAccent = document.getElementById('spanishAccent').value;
             
             document.getElementById('settingsModal').style.display = 'none';
-            console.log('Voice settings updated:', voiceSettings);
+            console.log('Settings updated:', voiceSettings);
+        }
+
+        function updateProfileDisplay() {
+            const display = document.getElementById('profileDisplay');
+            if (Object.keys(userProfile).length === 0) {
+                display.textContent = 'No profile data yet - start a conversation!';
+            } else {
+                display.innerHTML = `
+                    <strong>Name:</strong> ${userProfile.name || 'Not set'}<br>
+                    <strong>Age:</strong> ${userProfile.age || 'Not set'}<br>
+                    <strong>Interests:</strong> ${userProfile.interests || 'Not set'}<br>
+                    <strong>Work:</strong> ${userProfile.work || 'Not set'}<br>
+                    <strong>Conversations:</strong> ${conversationHistory.length} messages
+                `;
+            }
+        }
+
+        function resetProfile() {
+            if (confirm('This will delete your profile and conversation history. Are you sure?')) {
+                userProfile = {};
+                conversationHistory = [];
+                localStorage.removeItem('realtalk_profile_' + CONFIG.USER_ID);
+                localStorage.removeItem('realtalk_conversation_' + CONFIG.USER_ID);
+                updateProfileIndicator();
+                updateProfileDisplay();
+                
+                // Clear conversation window
+                conversationWindow.innerHTML = `
+                    <div class="welcome-message">
+                        🎤 Hi! I'm your German conversation partner. Click "Start Talking" and tell me your name!<br>
+                        <small>(I'll learn about you naturally as we chat)</small>
+                    </div>
+                `;
+                
+                alert('Profile reset! You can start fresh.');
+            }
         }
 
         // Enhanced speech recognition with better pause detection
         function initializeSpeechRecognition() {
             if ('webkitSpeechRecognition' in window && !recognition) {
                 recognition = new webkitSpeechRecognition();
-                recognition.continuous = true; // Keep listening continuously
-                recognition.interimResults = true; // Get partial results
+                recognition.continuous = true;
+                recognition.interimResults = true;
                 recognition.lang = voiceSettings.germanAccent;
                 
-                // Speech detection variables
                 let finalTranscript = '';
                 let interimTranscript = '';
-                let lastSpeechTime = 0;
                 let speechTimeout;
                 
                 recognition.onstart = function() {
-                    console.log('Speech recognition started - continuous listening mode');
+                    console.log('Speech recognition started - onboarding mode');
                     isListening = true;
                     finalTranscript = '';
                     interimTranscript = '';
@@ -722,7 +802,6 @@
                     listenBtn.classList.remove('listening');
                     listeningIndicator.classList.remove('active');
                     
-                    // Clear any pending timeouts
                     if (speechTimeout) {
                         clearTimeout(speechTimeout);
                     }
@@ -731,7 +810,6 @@
                 recognition.onresult = function(event) {
                     interimTranscript = '';
                     
-                    // Process all results
                     for (let i = event.resultIndex; i < event.results.length; i++) {
                         const transcript = event.results[i][0].transcript;
                         
@@ -742,33 +820,23 @@
                         }
                     }
                     
-                    // Update last speech time when we hear something
                     if (interimTranscript.trim() || finalTranscript.trim()) {
-                        lastSpeechTime = Date.now();
-                        
-                        // Show what we're hearing in real-time
                         updateListeningFeedback(finalTranscript + interimTranscript);
                     }
                     
-                    // Clear existing timeout and set new one
                     if (speechTimeout) {
                         clearTimeout(speechTimeout);
                     }
                     
-                    // Wait for natural pause (2.5 seconds of silence after speech)
                     speechTimeout = setTimeout(() => {
                         if (finalTranscript.trim()) {
-                            console.log('Natural pause detected, processing:', finalTranscript);
-                            
-                            // Stop recognition and process the complete thought
+                            console.log('Processing complete thought:', finalTranscript);
                             recognition.stop();
                             processUserInput(finalTranscript.trim());
-                            
-                            // Clear variables
                             finalTranscript = '';
                             interimTranscript = '';
                         }
-                    }, 2500); // 2.5 second pause = natural conversation break
+                    }, 2500);
                 };
 
                 recognition.onerror = function(event) {
@@ -785,13 +853,12 @@
             }
         }
 
-        // Real-time feedback of what's being heard
         function updateListeningFeedback(transcript) {
             const indicator = document.getElementById('listeningIndicator');
             if (transcript.trim()) {
-                indicator.innerHTML = `🎙️ Hearing: "${transcript.trim()}" <em>(continue speaking...)</em>`;
+                indicator.innerHTML = `🎙️ Hearing: "${transcript.trim()}" <em>(continue...)</em>`;
             } else {
-                indicator.innerHTML = '🎙️ Listening... speak naturally and AIS will respond when you\'re done';
+                indicator.innerHTML = '🎙️ Listening... speak naturally and I\'ll respond when you\'re done';
             }
         }
 
@@ -802,17 +869,14 @@
             }
             
             if (isListening) {
-                // Manual stop
                 recognition.stop();
             } else {
                 if (recognition) {
                     try {
-                        // Update language based on current settings
                         recognition.lang = voiceSettings.germanAccent;
                         recognition.start();
                     } catch (error) {
                         console.error('Error starting recognition:', error);
-                        // Recognition might already be running, try to restart
                         setTimeout(() => {
                             try {
                                 recognition.start();
@@ -835,10 +899,10 @@
             }
         });
 
-        // Enhanced conversation processing with contextual understanding
+        // Enhanced conversation processing with profile building
         async function processUserInput(userInput) {
             try {
-                console.log('Processing contextual input:', userInput);
+                console.log('Processing onboarding input:', userInput);
                 addUserMessage(userInput);
                 addToHistory('user', userInput);
                 
@@ -846,7 +910,7 @@
                 listenBtn.disabled = true;
                 
                 const response = await callBackend(userInput);
-                console.log('Got contextual response:', response);
+                console.log('Got onboarding response:', response);
                 
                 const loadingElement = document.getElementById(loadingId);
                 if (loadingElement) {
@@ -854,9 +918,12 @@
                 }
                 
                 if (response && response.success && response.response) {
-                    // Handle clarification requests if needed
-                    if (response.response.clarificationRequested && response.response.clarificationText) {
-                        addClarificationMessage(response.response.clarificationText);
+                    // Update user profile if new information was gathered
+                    if (response.profileUpdate) {
+                        Object.assign(userProfile, response.profileUpdate);
+                        saveUserData();
+                        updateProfileIndicator();
+                        console.log('Profile updated:', userProfile);
                     }
                     
                     addAISMessage(
@@ -874,8 +941,8 @@
                 } else {
                     console.error('Backend error:', response);
                     addAISMessage(
-                        'Entschuldigung, ich habe ein technisches Problem.',
-                        '(Sorry, I am having a technical issue.)'
+                        'Entschuldigung, ich habe ein Problem.',
+                        '(Sorry, I have a problem.)'
                     );
                 }
                 
@@ -890,13 +957,14 @@
             }
         }
 
-        // Call backend with conversation context
+        // Call backend with profile information
         async function callBackend(userInput) {
             const payload = {
                 action: 'conversation',
                 userId: CONFIG.USER_ID,
                 userInput: userInput,
                 language: CONFIG.CURRENT_LANGUAGE,
+                userProfile: JSON.stringify(userProfile),
                 conversationContext: getConversationContext()
             };
 
@@ -912,7 +980,7 @@
             message.className = 'message user-message';
             message.innerHTML = `
                 <div class="target-language">${text}</div>
-                <div class="translation">(Your German input)</div>
+                <div class="translation">(You said)</div>
             `;
             conversationWindow.appendChild(message);
             scrollToBottom();
@@ -929,8 +997,8 @@
             
             if (loading) {
                 message.innerHTML = `
-                    <div class="target-language">AIS is thinking contextually</div>
-                    <div class="translation">(Analyzing conversation context...)</div>
+                    <div class="target-language">Getting to know you</div>
+                    <div class="translation">(Preparing personalized response...)</div>
                 `;
             } else {
                 message.innerHTML = `
@@ -942,17 +1010,6 @@
             conversationWindow.appendChild(message);
             scrollToBottom();
             return messageId;
-        }
-
-        function addClarificationMessage(clarificationText) {
-            const message = document.createElement('div');
-            message.className = 'clarification-message';
-            message.innerHTML = `
-                <div style="font-weight: 500; margin-bottom: 8px;">🤔 Clarification Request:</div>
-                <div>${clarificationText}</div>
-            `;
-            conversationWindow.appendChild(message);
-            scrollToBottom();
         }
 
         function speakGerman(text) {
@@ -970,9 +1027,7 @@
             
             if (germanVoices.length > 0) {
                 const preferredVoice = germanVoices.find(voice => 
-                    voice.name.toLowerCase().includes(voiceSettings.gender) ||
-                    (voiceSettings.gender === 'female' && voice.name.toLowerCase().includes('female')) ||
-                    (voiceSettings.gender === 'male' && voice.name.toLowerCase().includes('male'))
+                    voice.name.toLowerCase().includes(voiceSettings.gender)
                 );
                 
                 if (preferredVoice) {
@@ -1000,11 +1055,10 @@
         }
 
         // Initialize
-        console.log('RealTalk Advanced Contextual System initialized');
+        console.log('RealTalk Conversational Onboarding System initialized');
         console.log('User ID:', CONFIG.USER_ID);
-        console.log('Conversation history:', conversationHistory.length, 'messages');
+        console.log('Current profile:', userProfile);
         
-        // Load voices when available
         speechSynthesis.onvoiceschanged = function() {
             console.log('Available German voices:', speechSynthesis.getVoices().filter(v => v.lang.startsWith('de')));
         };
